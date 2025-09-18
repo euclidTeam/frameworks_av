@@ -36,12 +36,14 @@ namespace gl {
 class BlurFilter {
 public:
     // Downsample FBO to improve performance
-    static constexpr float kFboScale = 0.2f;
+    static constexpr float kFboScale = 0.15f;
     // Maximum number of render passes
-    static constexpr uint32_t kMaxPasses = 4;
+    static constexpr uint32_t kMaxPasses = 12;
     // To avoid downscaling artifacts, we interpolate the blurred fbo with the full composited
     // image, up to this radius.
-    static constexpr float kMaxCrossFadeRadius = 10.0f;
+    static constexpr float kMaxCrossFadeRadius = 5.0f;
+    static constexpr float kBlurStrengthScale = 1.0f;
+    static constexpr uint32_t kMinPassesForHeavyBlur = 8;
 
     explicit BlurFilter(GLESRenderEngine& engine);
     virtual ~BlurFilter(){};

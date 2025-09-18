@@ -138,14 +138,10 @@ void BlurFilter::drawMesh() {
 status_t BlurFilter::prepare() {
     ATRACE_NAME("BlurFilter::prepare");
 
-    // Kawase is an approximation of Gaussian, but it behaves differently from it.
-    // A radius transformation is required for approximating them, and also to introduce
-    // non-integer steps, necessary to smoothly interpolate large radii.
-    const auto radius = mRadius / 6.0f;
+    const auto radius = mRadius * kBlurStrengthScale;
 
-    // Calculate how many passes we'll do, based on the radius.
-    // Too many passes will make the operation expensive.
-    const auto passes = min(kMaxPasses, (uint32_t)ceil(radius));
+    const auto passes = max(kMinPassesForHeavyBlur,
+                           min(kMaxPasses, (uint32_t)ceil(radius)));
 
     const float radiusByPasses = radius / (float)passes;
     const float stepX = radiusByPasses / (float)mCompositionFbo.getBufferWidth();
@@ -256,13 +252,21 @@ string BlurFilter::getBlurFragShader() const {
         out vec4 fragColor;
 
         void main() {
-            vec3 sum = texture(uTexture, vUV).rgb;
+            vec3 sum = texture(uTexture, vUV).rgb * 2.0;
             sum += texture(uTexture, vBlurTaps[0]).rgb;
             sum += texture(uTexture, vBlurTaps[1]).rgb;
             sum += texture(uTexture, vBlurTaps[2]).rgb;
             sum += texture(uTexture, vBlurTaps[3]).rgb;
 
-            fragColor = vec4(sum * 0.2, 1.0);
+            vec2 offset = vBlurTaps[0] - vUV;
+            sum += texture(uTexture, vUV + offset * 0.5).rgb * 0.5;
+            sum += texture(uTexture, vUV - offset * 0.5).rgb * 0.5;
+            offset = vBlurTaps[1] - vUV;
+            sum += texture(uTexture, vUV + offset * 0.5).rgb * 0.5;
+            sum += texture(uTexture, vUV - offset * 0.5).rgb * 0.5;
+
+            fragColor = vec4(sum / 8.0, 1.0);
+
         }
     )SHADER";
 }
@@ -294,7 +298,7 @@ string BlurFilter::getMixFragShader() const {
         void main() {
             vec3 blurred = texture(uBlurTexture, vUV).rgb;
             vec3 composition = texture(uCompositionTexture, vUV).rgb;
-            fragColor = vec4(mix(composition, blurred, uBlurOpacity), 1.0);
+            fragColor = vec4(1.0, 0.0, 0.0, 1.0); // Output solid red
         }
     )SHADER";
     return shader;
